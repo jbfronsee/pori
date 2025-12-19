@@ -7,6 +7,55 @@ class Palette
     /// Creates Palette from image using Histogram
     /// </summary>
     /// 
+    /// <param name="color1">First color to compare</param>
+    /// <param name="color2">Second color to compare</param>
+    /// <exception cref="MagickException">Thrown when an error is raised by ImageMagick.</exception>
+    public static bool ColorWithinThreshold(ColorHSV color1, ColorHSV color2)
+    {
+        // Hue is an angular slider that wraps around like a circle.
+        double hDegrees1 = color1.Hue * 360;
+        double hDegrees2 = color2.Hue * 360;
+        double hueDiff = Math.Abs(hDegrees2 - hDegrees1);
+        double deltaH = Math.Min(360 - hueDiff, hueDiff);
+
+        double deltaS = Math.Abs(color2.Saturation - color1.Saturation);
+        double deltaV = Math.Abs(color2.Value - color1.Value);
+
+        // Bright value threshold
+        double threshH = 7.2;
+        double threshS = .3;
+        double threshV = .3;
+
+        // Darkest values
+        if(color1.Value < .2)
+        {
+            threshS = 1;
+            threshH = 360;
+        }
+        // Dark values
+        else if(color1.Value > .2 && color1.Value < .4)
+        {
+            threshS = .8;
+            threshH *= 2;
+        }
+        // Midtones
+        if(color1.Value > .4 && color1.Value < .6)
+        {
+            threshS *= 2;
+        }
+
+        if (deltaH > threshH || deltaS > threshS || deltaV > threshV)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Creates Palette from image using Histogram
+    /// </summary>
+    /// 
     /// <param name="image">The image to create palette from.</param>
     /// <exception cref="MagickException">Thrown when an error is raised by ImageMagick.</exception>
     public static List<IMagickColor<byte>> PaletteFromImage(MagickImage image)
@@ -18,78 +67,39 @@ class Palette
         {
             ColorHSV colorHSV = ColorHSV.FromMagickColor(color.Key) ?? new ColorHSV(0, 0, 0);
             
-            ColorHSV? index = null;
+            ColorHSV? similarKey = null;
+            
             uint min = uint.MaxValue;
-            ColorHSV? indexReplace = null;
+            ColorHSV? minKey = null;
             foreach (var max in maxValues)
-
             {
-                ColorHSV hColor = max.Key;
-                double deltaH = Math.Abs(hColor.Hue - colorHSV.Hue);
-                double deltaS = Math.Abs(hColor.Saturation - colorHSV.Saturation);
-                double deltaV = Math.Abs(hColor.Value - colorHSV.Value);
-
-                // TODO constants
-                //TODO hue is angular
-                double thresh_h = .02;
-                double thresh_s = .3;
-                double thresh_v = .3;
-
-                if(colorHSV.Value < .2)
+                if (ColorWithinThreshold(colorHSV, max.Key))
                 {
-                    thresh_s = 1;
-                    thresh_h = 1;
-                }
-                if(colorHSV.Value > .2 && colorHSV.Value < .4)
-                {
-                    thresh_s = .8;
-                    thresh_h *= 2;
-                }
-                if(colorHSV.Value > .4 && colorHSV.Value < .6)
-                {
-                    thresh_s *= 2;
-                }
-
-                if (deltaV > thresh_v || deltaH > thresh_h || deltaS > thresh_s)
-                {
-                    if(color.Value > min || color.Value > max.Value)
-                    {
-                        if(max.Value < min)
-                        {
-                            indexReplace = max.Key;
-                            // Console.WriteLine($"hColor.Hue {hColor.Hue}");
-                            // Console.WriteLine($"hColor.Saturation {hColor.Saturation}");
-                            // Console.WriteLine($"hColor.Value {hColor.Value}");
-
-                            // Console.WriteLine($"deltaH: {deltaH}");
-                            // Console.WriteLine($"deltaS: {deltaS}");
-                            // Console.WriteLine($"deltaV: {deltaV}");
-                        }
-                    }
-                }
-                else
-                {
-                    index = hColor;
+                    similarKey = max.Key;
                     break;
+                }
+
+                if (color.Value > max.Value && max.Value <= min)
+                {
+                    minKey = max.Key;
                 }
 
                 min = Math.Min(max.Value, min);
             }
 
-            if (index != null)
+            if (similarKey != null)
             {
-                maxValues[index] += color.Value;
+                maxValues[similarKey] += color.Value;
             }
             else if (maxValues.Count < 16)
             {
                 maxValues[colorHSV] = color.Value;
             }
-            else if (indexReplace != null)
+            else if (minKey != null)
             {
-                maxValues.Remove(indexReplace);
+                maxValues.Remove(minKey);
                 maxValues[colorHSV] = color.Value;
-            }
-            
+            }    
         }
 
         List<IMagickColor<byte>> palette = new List<IMagickColor<byte>>();
