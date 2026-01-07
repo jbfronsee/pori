@@ -3,6 +3,10 @@ using ImageMagick.Drawing;
 
 public class Format
 {
+    private static readonly string mLineSeparator = new('-', 60);
+    
+    public static string LineSeparator => mLineSeparator;
+    
     /// <summary>
     /// Formats palette as a GPL file for importing into software like GIMP and Krita.
     /// </summary>

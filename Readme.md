@@ -27,7 +27,7 @@ the histogram as seed values.
 |--------|-----------|-----------|
 |`-g`|Outputs the palette as a GPL palette file.|Yes|
 |`-h`|Only uses a histogram for generating the palette.|No|
-|`-i`|Prints the palette as binary PNG image data to standard output.|No|
 |`-o`|Outputs the palette file as an image to a destination.|Yes|
+|`-p`|Prints the palette as binary PNG image data to standard output.|No|
 |`-r`|Resizes the image by a percentage before generating the palette.|No|
 |`-v`|Verbose printing.|No|

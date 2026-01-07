@@ -1,72 +1,107 @@
 public class Options
 {
+    private static bool IsFlag(string arg)
+    {
+        return arg.StartsWith("-") && arg.Length == 2;
+    }
+
+    private static bool IsPairFlag(char flag)
+    {
+        char[] flags = ['o', 'r'];
+        return flags.Contains(flag);
+    }
+
+    private void HandleFlag(char flag)
+    {
+        switch (flag)
+        {
+            case 'g':
+                AsGPL = true;
+                Print = false;
+                break;
+            case 'h':
+                HistogramOnly = true;
+                break;
+            case 'o':
+                Print = false;
+                break;
+            case 'p':
+                PrintImage = true;
+                Print = false;
+                break;
+            case 'v':
+                Verbose = true;
+                break;
+        }
+    }
+
+    private void HandlePairFlag(char flag, string arg)
+    {
+        if (IsFlag(arg) || string.IsNullOrEmpty(arg))
+        {
+            mInvalidArg = $"Missing operand for {flag}";
+            return;
+        }
+
+        switch (flag)
+        {
+            case 'o':
+                OutputFile = arg;
+                break;
+            case 'r':
+                if (double.TryParse(arg, out double percentage))
+                {
+                    ResizePercentage = percentage;
+                }
+                else
+                {
+                    mInvalidArg = $"{arg} is not a percentage.";
+                    return;
+                }
+                break;
+        }
+    }
+
+    private string mInvalidArg;
+
     public static Options GetOptions(string[] args)
     {
-        Options opts = new();
-        bool output = false;
-        bool resize = false;
-        foreach (string arg in args)
+        Options opts = new()
         {
-            if (arg.StartsWith("-"))
-            {
-                if (arg.Length == 2)
-                {
-                    char flagChar = arg[1];
-                    switch (flagChar)
-                    {
-                        case 'g':
-                            opts.AsGPL = true;
-                            opts.Print = false;
-                            break;
-                        case 'h':
-                            opts.HistogramOnly = true;
-                            break;
-                        case 'i':
-                            opts.PrintImage = true;
-                            opts.Print = false;
-                            break;
-                        case 'o':
-                            output = true;
-                            opts.Print = false;
-                            break;
-                        case 'r':
-                            resize = true;
-                            break;
-                        case 'v':
-                            opts.Verbose = true;
-                            break;
+            InputFile = args.FirstOrDefault("")
+        };
 
-                    }
+        char? pairFlag = null;
+        foreach (string arg in args.Skip(1))
+        {
+            if (pairFlag is not null)
+            {
+                opts.HandlePairFlag(pairFlag.Value, arg);
+                pairFlag = null;
+            }
+            else if (IsFlag(arg))
+            {
+                char flag = arg[1];
+                opts.HandleFlag(flag);
+                if (IsPairFlag(flag))
+                {
+                    pairFlag = flag;
                 }
             }
             else
             {
-                // Process non-flag arguments (operands/values)
-                if (output)
-                {
-                    opts.OutputFile = arg;
-                    output = false;
-                }
-                else if (resize)
-                {
-                    opts.ResizePercentage = double.Parse(arg);
-                    resize = false;
-                }
-                else if (string.IsNullOrEmpty(opts.InputFile))
-                {
-                    opts.InputFile = arg;
-                }
-                else
-                {
-                    opts.mInvalidArg = arg;
-                }
+                opts.mInvalidArg = arg;
+                return opts;
             }
+        }
+
+        if (pairFlag is not null)
+        {
+            opts.HandlePairFlag(pairFlag.Value, "");
         }
 
         return opts;
     }
-
-    private string mInvalidArg;
 
     public Options()
     {
