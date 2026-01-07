@@ -67,6 +67,32 @@ internal class Program
         return hasErrors;
     }
 
+    public static Tolerances? ReadTolerances(IConfigurationRoot config, bool verbose)
+    {
+        Tolerances? tolerances = Config.GetTolerances(config.GetSection("Tolerances"));
+        if (tolerances is null)
+        {
+            Console.WriteLine("Invalid or missing appsettings.json file.");
+            return tolerances;
+        }
+
+        if (verbose)
+        {
+            Console.WriteLine(Format.LineSeparator);
+            Console.WriteLine($"Tolerances:\n{tolerances}");
+            Console.WriteLine(Format.LineSeparator);
+        }
+
+        (bool tolValid, string tolMessage) = tolerances.Validate();
+        if (!tolValid)
+        {
+            Console.WriteLine(tolMessage);
+            return null;
+        }
+
+        return tolerances;
+    }
+
     private static void Main(string[] args)
     {
         Options opts = Options.GetOptions(args);
@@ -83,24 +109,9 @@ internal class Program
                 .AddJsonFile("appsettings.json", optional: false)
                 .Build();
 
-            Tolerances? tolerances = Config.GetTolerances(config.GetSection("Tolerances"));
+            Tolerances? tolerances = ReadTolerances(config, opts.Verbose);
             if (tolerances is null)
             {
-                Console.WriteLine("Invalid or missing appsettings.json file.");
-                return;
-            }
-
-            if (opts.Verbose)
-            {
-                Console.WriteLine(new string('-', 30));
-                Console.WriteLine($"Tolerances:\n{tolerances}");
-                Console.WriteLine(new string('-', 30));
-            }
-
-            (bool tolValid, string tolMessage) = tolerances.Validate();
-            if (!tolValid)
-            {
-                Console.WriteLine(tolMessage);
                 return;
             }
             
@@ -119,6 +130,7 @@ internal class Program
             if (opts.Print || opts.Verbose)
             {
                 Console.WriteLine("Processing Image...");
+                Console.WriteLine(Format.LineSeparator);
             }
 
             GeneratePalette(opts, inputImage, tolerances);
