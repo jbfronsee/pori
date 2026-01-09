@@ -1,29 +1,39 @@
 using ImageMagick;
 using ImageMagick.Colors;
+using Wacton.Unicolour;
 
 public class Palette
 {
-    private class ColorHSVComparer(Tolerances tolerances) : IComparer<ColorHSV>
+    private class ThresholdHSVComparer(Tolerances tolerances) : SimpleColor.HSVComparer
     {
         private Tolerances mTolerances = tolerances;
 
-        public int Compare(ColorHSV? x, ColorHSV? y)
+        public override int Compare(SimpleColor.HSV x, SimpleColor.HSV y)
         {
-            if (x is null)
+            if (ColorWithinThreshold(x, y, mTolerances))
             {
-                return y is not null ? -y.CompareTo(x) : 0;
+                return 0;
             }
-
-            if (y is not null)
+            else
             {
-                if (ColorWithinThreshold(x, y, mTolerances))
-                {
-                    return 0;
-                }
+                return base.Compare(x, y);
             }
-
-            return x.CompareTo(y);
         }
+    }
+
+    /// <summary>
+    /// Calculates difference in Hue from normalized value to a Degree Value (0 - 360)
+    /// </summary>
+    /// 
+    /// <param name="hue1">First hue to compare (0 - 1) normalized value</param>
+    /// <param name="hue2">Second hue to compare (0 - 1) normalized value</param>
+    public static double CalculateDeltaH(double hue1, double hue2)
+    {
+        // Hue is an angular slider that wraps around like a circle.
+        double hDegrees1 = hue1 * 360;
+        double hDegrees2 = hue2 * 360;
+        double hueDiff = Math.Abs(hDegrees2 - hDegrees1);
+        return Math.Min(360 - hueDiff, hueDiff);
     }
 
     /// <summary>
@@ -32,20 +42,13 @@ public class Palette
     /// 
     /// <param name="color1">First color to compare</param>
     /// <param name="color2">Second color to compare</param>
-    /// <exception cref="MagickException">Thrown when an error is raised by ImageMagick.</exception>
-    public static bool ColorWithinThreshold(ColorHSV color1, ColorHSV color2, Tolerances tolerances)
+    public static bool ColorWithinThreshold(SimpleColor.HSV color1, SimpleColor.HSV color2, Tolerances tolerances)
     {
-        // Hue is an angular slider that wraps around like a circle.
-        double hDegrees1 = color1.Hue * 360;
-        double hDegrees2 = color2.Hue * 360;
-        double hueDiff = Math.Abs(hDegrees2 - hDegrees1);
-        
-        // Value differences
-        double deltaH = Math.Min(360 - hueDiff, hueDiff);
-        double deltaS = Math.Abs(color2.Saturation - color1.Saturation);
-        double deltaV = Math.Abs(color2.Value - color1.Value);
+        double deltaH = CalculateDeltaH(color1.H, color2.H);
+        double deltaS = Math.Abs(color2.S - color1.S);
+        double deltaV = Math.Abs(color2.V - color1.V);
 
-        ThresholdHSV thresh = tolerances.GetThreshold(color1.Value);
+        ThresholdHSV thresh = tolerances.GetThreshold(color1.V);
         return deltaH <= thresh.Hue && deltaS <= thresh.Saturation && deltaV <= thresh.Value;
     }
 
@@ -53,60 +56,107 @@ public class Palette
     /// Creates Palette from image using Histogram
     /// </summary>
     /// 
-    /// <param name="image">The image to create palette from.</param>
+    /// <param name="image">The image to create palette from with alpha channel removed.</param>
     /// <exception cref="MagickException">Thrown when an error is raised by ImageMagick.</exception>
-    public static List<IMagickColor<byte>> PaletteFromImage(MagickImage image, Tolerances tolerances)
+    public static List<IMagickColor<byte>> PaletteFromPixels(List<SimpleColor.HSV> pixels, Tolerances tolerances)
     {
-        SortedDictionary<ColorHSV, uint> histogram = new(new ColorHSVComparer(tolerances));
-        foreach (var color in image.GetPixels().Select(p => p.ToColor() ?? new MagickColor()))
+        SortedDictionary<SimpleColor.HSV, int> histogram = new(new ThresholdHSVComparer(tolerances));
+        
+        // Sample uniformly around image in steps.
+        int step = (pixels.Count / 256) + 1;
+        for (int i = 0; i < pixels.Count; i += step)
         {
-            ColorHSV hsv = ColorHSV.FromMagickColor(color) ?? new ColorHSV(0, 0, 0);
+            histogram.TryAdd(pixels[i], 1);
+        }
 
+        foreach(var color in pixels)
+        {
             // If the color is within threshold update the max value.
-            if (histogram.ContainsKey(hsv))
+            if (histogram.ContainsKey(color))
             {
-                histogram[hsv]++;
+                histogram[color]++;
             }
             else
             {
-                histogram.Add(hsv, 1);
+                histogram.Add(color, 1);
             }
         }
 
-        var maxes = histogram.OrderByDescending(g => g.Value).Take(16).ToList();
+        var maxes = histogram.OrderByDescending(g => g.Value).Distinct().Take(16).ToList();
         List<IMagickColor<byte>> palette = [];
         foreach (var (color, _) in maxes)
         {
-            palette.Add(color.ToMagickColor());
+            palette.Add(new ColorHSV(color.H, color.S, color.V).ToMagickColor());
         }
 
         return palette;
     }
 
-    /// <summary>
-    /// Creates Palette from image using Kmeans. Modifies image object.
-    /// </summary>
-    /// 
-    /// <param name="image">The image to create palette from.</param>
-    /// <param name="seeds">The seed values for the Kmeans clusters.</param>
-    /// <exception cref="MagickException">Thrown when an error is raised by ImageMagick.</exception>
-    public static List<IMagickColor<byte>> PaletteFromImageKmeans(MagickImage image, List<IMagickColor<byte>> seeds)
+    private static double UpdateMean(double mean, double count, double newValue)
     {
-        KmeansSettings kmeans = new KmeansSettings();
-        kmeans.SeedColors = string.Join(";", seeds);
-        kmeans.NumberColors = (uint)seeds.Count;
-        kmeans.MaxIterations = 16;
+        double sum = mean * count;
+        return (sum + newValue) / (count + 1);
+    }
 
-        image.Kmeans(kmeans);
+    public static double CalculateDistance(SimpleColor.Lab color1, SimpleColor.Lab color2)
+    {
 
-        var newHist = image.Histogram();
+        double deltaL = Math.Abs(color2.L - color1.L);
+        double deltaA = Math.Abs(color2.A - color1.A);
+        double deltaB = Math.Abs(color2.B - color1.B);
+        return Math.Sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
+    }
 
-        List<IMagickColor<byte>> palette = new List<IMagickColor<byte>>();
-        foreach (var color in newHist.OrderByDescending(c => c.Value))
+    private static List<SimpleColor.Lab> KMeansCluster(List<SimpleColor.Lab> pixels, List<SimpleColor.Lab> clusters, Tolerances tolerances)
+    {
+        clusters = clusters.Distinct().ToList();
+        Dictionary<SimpleColor.Lab, (SimpleColor.Lab, int)> means = clusters.ToDictionary(c => c, c => (c, 0));
+        foreach (var color in pixels)
         {
-            palette.Add(color.Key);
+            SimpleColor.Lab bestCluster = clusters.First();
+            double bestEpsilon = double.MaxValue;
+
+            foreach (SimpleColor.Lab cluster in clusters)
+            {
+                double epsilon = CalculateDistance(cluster, color);
+                if (epsilon < bestEpsilon)
+                {
+                    bestCluster = cluster;
+                    bestEpsilon = epsilon;
+                }
+            }
+            
+            (SimpleColor.Lab mean, int count) = means[bestCluster];
+            var newMean = new SimpleColor.Lab(UpdateMean(mean.L, count, color.L), UpdateMean(mean.A, count, color.A), UpdateMean(mean.B, count, color.B));
+            means[bestCluster] = (newMean, count + 1);
         }
 
-        return palette;
+        return means.Values.Select(m =>
+        {
+            var (mean, _) = m;
+            return mean;
+        }).ToList();
+    }
+
+    public static List<IMagickColor<byte>> PaletteFromPixelsKmeans(List<SimpleColor.Lab> pixels, List<IMagickColor<byte>> seeds, Tolerances tolerances)
+    {
+        int maxIterations = 16;
+        List<SimpleColor.Lab> clusters = seeds.Select(c => 
+        {
+            var (l, a, b) = new Unicolour(ColourSpace.Rgb255, c.R, c.G, c.B).Lab;
+            return new SimpleColor.Lab(l, a, b);
+        }).ToList();
+
+        for (int i = 0; i < maxIterations; i++)
+        {
+            clusters = KMeansCluster(pixels, clusters, tolerances);
+        }
+
+        return clusters.Select(c =>
+        {
+            Unicolour color = new Unicolour(ColourSpace.Lab, c.L, c.A, c.B);
+            var rgb = color.Rgb.Byte255;
+            return new MagickColor((byte)rgb.R, (byte)rgb.G, (byte)rgb.B);
+        }).ToList<IMagickColor<byte>>();
     }
 }

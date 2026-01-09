@@ -1,20 +1,36 @@
 ﻿using ImageMagick;
 using Microsoft.Extensions.Configuration;
+using Wacton.Unicolour;
 
 internal class Program
 {
     public static void GeneratePalette(Options opts, MagickImage inputImage, Tolerances tolerances)
     {
-        if(opts.ResizePercentage < 100 && opts.ResizePercentage > 0)
+        if (opts.ResizePercentage < 100 && opts.ResizePercentage > 0)
         {
             inputImage.Resize(new Percentage(opts.ResizePercentage));
         }
 
-        List<IMagickColor<byte>> palette = Palette.PaletteFromImage(inputImage, tolerances);
+        inputImage.Settings.BackgroundColor = MagickColors.White;
+        inputImage.Alpha(AlphaOption.Remove);
+
+        List<SimpleColor.HSV> hsvPixels = inputImage.GetPixelColors().Select(c =>
+        {
+            var (h, s, v) = new Unicolour(ColourSpace.Rgb255, c.R, c.G, c.B).Hsb;
+            return new SimpleColor.HSV(h / 360, s, v);
+        }).ToList();
+
+        List<IMagickColor<byte>> palette = Palette.PaletteFromPixels(hsvPixels, tolerances);
 
         if (!opts.HistogramOnly)
         {
-            palette = Palette.PaletteFromImageKmeans(inputImage, palette);
+            hsvPixels.Clear();
+            List<SimpleColor.Lab> labPixels = inputImage.GetPixelColors().Select(c =>
+            {
+                var (l, a, b) = new Unicolour(ColourSpace.Rgb255, c.R, c.G, c.B).Lab;
+                return new SimpleColor.Lab(l, a, b);
+            }).ToList();
+            palette = Palette.PaletteFromPixelsKmeans(labPixels, palette, tolerances);
         }
 
         if (opts.Print)
