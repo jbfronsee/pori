@@ -1,6 +1,5 @@
 ﻿using ImageMagick;
 using Microsoft.Extensions.Configuration;
-using Wacton.Unicolour;
 
 internal class Program
 {
@@ -14,23 +13,16 @@ internal class Program
         inputImage.Settings.BackgroundColor = MagickColors.White;
         inputImage.Alpha(AlphaOption.Remove);
 
-        List<SimpleColor.HSV> hsvPixels = inputImage.GetPixelColors().Select(c =>
-        {
-            var (h, s, v) = new Unicolour(ColourSpace.Rgb255, c.R, c.G, c.B).Hsb;
-            return new SimpleColor.HSV(h / 360, s, v);
-        }).ToList();
-
-        List<IMagickColor<byte>> palette = Palette.PaletteFromPixels(hsvPixels, tolerances);
+        List<IMagickColor<byte>> palette = Palette.FromImage(inputImage, tolerances);
 
         if (!opts.HistogramOnly)
         {
-            hsvPixels.Clear();
-            List<SimpleColor.Lab> labPixels = inputImage.GetPixelColors().Select(c =>
+            palette = Palette.FromImageKmeans(inputImage, palette, tolerances, opts.Verbose || opts.Print);
+
+            if (opts.Print)
             {
-                var (l, a, b) = new Unicolour(ColourSpace.Rgb255, c.R, c.G, c.B).Lab;
-                return new SimpleColor.Lab(l, a, b);
-            }).ToList();
-            palette = Palette.PaletteFromPixelsKmeans(labPixels, palette, tolerances);
+                Console.WriteLine(Format.LineSeparator);
+            }
         }
 
         if (opts.Print)
