@@ -5,16 +5,24 @@ internal class Program
 {
     public static void GeneratePalette(Options opts, MagickImage inputImage, Tolerances tolerances)
     {
-        if(opts.ResizePercentage < 100 && opts.ResizePercentage > 0)
+        if (opts.ResizePercentage < 100 && opts.ResizePercentage > 0)
         {
             inputImage.Resize(new Percentage(opts.ResizePercentage));
         }
 
-        List<IMagickColor<byte>> palette = Palette.PaletteFromImage(inputImage, tolerances);
+        inputImage.Settings.BackgroundColor = MagickColors.White;
+        inputImage.Alpha(AlphaOption.Remove);
+
+        List<IMagickColor<byte>> palette = Palette.FromImage(inputImage, tolerances);
 
         if (!opts.HistogramOnly)
         {
-            palette = Palette.PaletteFromImageKmeans(inputImage, palette);
+            palette = Palette.FromImageKmeans(inputImage, palette, opts.Verbose || opts.Print);
+
+            if (opts.Print)
+            {
+                Console.WriteLine(Format.LineSeparator);
+            }
         }
 
         if (opts.Print)
@@ -27,12 +35,12 @@ internal class Program
         }
         else if (opts.AsGPL)
         {
-            List<string> file = Format.AsGPL(palette, Path.GetFileNameWithoutExtension(opts.OutputFile));
+            List<string> file = Format.AsGpl(palette, Path.GetFileNameWithoutExtension(opts.OutputFile));
             File.WriteAllLines(opts.OutputFile, file);
         }
         else
         {
-            MagickImage paletteImage = Format.AsPNG(palette);
+            MagickImage paletteImage = Format.AsPng(palette);
 
             if (opts.PrintImage)
             {
@@ -61,6 +69,11 @@ internal class Program
         else if (!string.IsNullOrEmpty(opts.InvalidArg))
         {
             Console.WriteLine($"Invalid Argument: {opts.InvalidArg}");
+            hasErrors = true;
+        }
+        else if (opts.ResizePercentage > 100 || opts.ResizePercentage <= 0)
+        {
+            Console.WriteLine($"-r value must be between 0 and 100");
             hasErrors = true;
         }
 

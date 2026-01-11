@@ -1,13 +1,14 @@
 # Introduction
 
-`px-swatch` generates a palette from a JPG or PNG image using Magick.NET. 
-It can output to PNG for visualization and sampling or GPL format for 
-importing into GIMP or Krita.
+`px-swatch` generates a palette from a JPG or PNG image using Magick.NET
+and Unicolour. It can output to PNG for visualization and sampling or GPL
+format for importing into GIMP or Krita.
 
 # How to Build
 
 1. Install Magick.NET package
     - `dotnet add package Magick.NET-Q8-AnyCPU`
+    - `dotnet add package Wacton.Unicolour`
 2. Build Project
     - `dotnet publish -c Release -r <RID>`
     - Linux RID: `linux-x64`
@@ -31,3 +32,13 @@ the histogram as seed values.
 |`-p`|Prints the palette as binary PNG image data to standard output.|No|
 |`-r`|Resizes the image by a percentage before generating the palette.|No|
 |`-v`|Verbose printing.|No|
+
+# Examples
+
+`px-swatch Ring.jpeg -o Palette.png`
+
+<img width="512" height="128" alt="Palette" src="https://github.com/user-attachments/assets/cbc1c165-d344-4b68-bd87-f603e5e1ee3f" />
+
+`px-swatch Flowers.jpg -p | chafa -f kitty`
+
+<img width="512" height="128" alt="flowers" src="https://github.com/user-attachments/assets/d680aec2-b14d-45cd-b0ba-527195c5bf1a" />
