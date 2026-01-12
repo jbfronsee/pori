@@ -103,7 +103,7 @@ public class Palette
         int step = (pixels.Length / 256) + 1;
         for (int i = 0; i < pixels.Length; i += step)
         {
-            histogram.TryAdd(Conversion.Hsv.Unpack(colormap[pixels[i]]), 1);
+            histogram.TryAdd(Conversion.Hsv.Unpack(colormap[pixels[i]]), 0);
         }
 
         foreach(var pixel in pixels)
@@ -140,7 +140,7 @@ public class Palette
     public static List<IMagickColor<byte>> FromImage(MagickImage image, Tolerances tolerances)
     {
         // pixels could be extremely large if the image is 4K or higher. But it only has 3 bytes each.
-        // colormap is limited by RGB values but is usually a lot less than pixels.
+        // colormap size is limited by RGB values and is usually a lot less than pixels.
         SimpleColor.Rgb[] pixels = new SimpleColor.Rgb[image.Width * image.Height];
         Dictionary<SimpleColor.Rgb, SimpleColor.PackedHsv> colormap = [];
         
@@ -169,7 +169,7 @@ public class Palette
     private static SimpleColor.Lab[] KMeansCluster(SimpleColor.Rgb[] pixels, SimpleColor.Lab[] clusters, Dictionary<SimpleColor.Rgb, SimpleColor.PackedLab> colormap)
     {
         // Total colors in an image is usually a lot less than the number of pixels.
-        Dictionary<SimpleColor.Rgb, int> memoizedCluster = []; 
+        Dictionary<SimpleColor.Rgb, int> memoizedCluster = [];
 
         (SimpleColor.Lab, int)[] means = clusters.Select(c => (c, 0)).ToArray();
         foreach (var pixel in pixels)
@@ -193,7 +193,6 @@ public class Palette
                 memoizedCluster[pixel] = bestClusterIndex;
             }
             
-            SimpleColor.Lab bestCluster = clusters[bestClusterIndex];
             means[bestClusterIndex] = UpdateMeanColor(means[bestClusterIndex], colorSimple);
         }
 
@@ -236,10 +235,10 @@ public class Palette
             SimpleColor.Lab[] newClusters = KMeansCluster(pixels, clusters, colormap);
 
             // If there is not a lot of change based on epsilon value then stop iterating.
-            finished = newClusters.Zip(clusters).Aggregate(true, (total, pair) =>
+            finished = clusters.Zip(newClusters).All(pair =>
             {
-                var (cluster1, cluster2) = pair;
-                return total && (CalculateDistance(cluster1, cluster2) <= 2.0);
+                var (oldCluster, newCluster) = pair;
+                return CalculateDistance(oldCluster, newCluster) <= 2.0;
             });
 
             clusters = newClusters;
@@ -267,7 +266,7 @@ public class Palette
     public static List<IMagickColor<byte>> FromImageKmeans(MagickImage image, List<IMagickColor<byte>> seeds, bool verbose = false)
     {
         // pixels could be extremely large if the image is 4K or higher. But it only has 3 bytes each.
-        // colormap is limited by RGB values but is usually a lot less than pixels.
+        // colormap is size limited by RGB values and is usually a lot less than pixels.
         SimpleColor.Rgb[] pixels = new SimpleColor.Rgb[image.Width * image.Height];
         Dictionary<SimpleColor.Rgb, SimpleColor.PackedLab> colormap = [];
         
