@@ -4,18 +4,14 @@
 and Unicolour. It can output to PNG for visualization and sampling or GPL
 format for importing into GIMP or Krita.
 
-# How to Build
+# How to Build and Run
 
-1. Install Magick.NET package
-    - `dotnet add package Magick.NET-Q8-AnyCPU`
-    - `dotnet add package Wacton.Unicolour`
-2. Build Project
+1. Build Project
     - `dotnet publish -c Release -r <RID>`
     - Linux RID: `linux-x64`
     - Windows RID: `win-x64`
-
-# How to Run
-`./bin/Release/net8.0/<RID>/publish/px-swatch [Input File] [Flags]`
+2. Run Project
+    - `./bin/publish/<RID>/px-swatch [Input File] [Flags]`
 
 # Options
 
