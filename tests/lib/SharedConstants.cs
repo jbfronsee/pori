@@ -4,4 +4,6 @@ public static class SharedConstants
 {
     // Doubles are never exact so use an epsilon
     public const double Epsilon = 1e-12;
+
+    public const double EpsilonFourPlaces = 1e-4;
 }
