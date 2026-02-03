@@ -18,6 +18,14 @@ public sealed class TestKMeans
         new(0, 0, 255)
     ];
 
+    private VectorLab[] ExpectedMeans = [
+        new (0, 0, 0),
+        new (53.23288178584245, 80.10930952982204, 67.22006831026425),
+        new (92.43686579690242, -53.87068573928911, 88.82941518641665),
+        new (32.302586667249486, 79.19666178930935, -107.86368104495168),
+        new (100, 0, 0)
+    ];
+
     private PackedLab FromLab(double l, double a, double b)
     {
         VectorLab lab = new(l, a, b);
@@ -91,5 +99,43 @@ public sealed class TestKMeans
         int[] expected = [0, 1, 2, 1, 0];
 
         CollectionAssert.AreEqual(expected, actual);
+    }
+
+    [TestMethod]
+    public void Test_Cluster_Means()
+    {
+        KMeansLab kmeans = BuildKMeans();
+
+        kmeans.Cluster(TestPixels);
+
+        VectorLab[] actualMeans = kmeans.Clusters.Select(c => c.Mean).ToArray();
+
+        foreach (var pair in actualMeans.Zip(ExpectedMeans))
+        {
+            var (actual, expected) = pair;
+
+            Assert.AreEqual(expected.L, actual.L, .01);
+            Assert.AreEqual(expected.A, actual.A, .01);
+            Assert.AreEqual(expected.B, actual.B, .01);
+        }
+    }
+
+    [TestMethod]
+    public void Test_ClusterParallel_Means()
+    {
+        KMeansLab kmeans = BuildKMeans();
+
+        kmeans.ClusterParallel(TestPixels);
+
+        VectorLab[] actualMeans = kmeans.Clusters.Select(c => c.Mean).ToArray();
+
+        foreach (var pair in actualMeans.Zip(ExpectedMeans))
+        {
+            var (actual, expected) = pair;
+
+            Assert.AreEqual(expected.L, actual.L, .01);
+            Assert.AreEqual(expected.A, actual.A, .01);
+            Assert.AreEqual(expected.B, actual.B, .01);
+        }
     }
 }

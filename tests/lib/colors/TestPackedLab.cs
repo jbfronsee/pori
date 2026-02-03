@@ -67,7 +67,6 @@ public sealed class TestPackedLab
     [TestMethod]
     public void Test_Pack_Greater_Than()
     {
-        // Calculated Max Values
         VectorLab value = new
         (
             PackedLab.LMax * 2,
@@ -84,7 +83,6 @@ public sealed class TestPackedLab
     [TestMethod]
     public void Test_Pack_Less_Than()
     {
-        // Calculated Max Values
         VectorLab value = new
         (
             PackedLab.LMin - PackedLab.LMax,

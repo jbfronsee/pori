@@ -75,6 +75,38 @@ public sealed class TestPackedHsv
         Test_Pack_Hsv_Middle_Logic(c => c.Pack());
     }
 
+    [TestMethod]
+    public void Test_Pack_Greater_Than()
+    {
+        ColorHsv value = new
+        (
+            2,
+            2,
+            2
+        );
+        PackedHsv expected = new(ushort.MaxValue, ushort.MaxValue, ushort.MaxValue);
+
+        PackedHsv actual = value.Pack();
+        
+        Assert.AreEqual(expected, actual);
+    }
+
+    [TestMethod]
+    public void Test_Pack_Less_Than()
+    {
+        ColorHsv value = new
+        (
+            -1,
+            -1,
+            -1
+        );
+        PackedHsv expected = new(ushort.MinValue, ushort.MinValue, ushort.MinValue);
+
+        PackedHsv actual = value.Pack();
+        
+        Assert.AreEqual(expected, actual);
+    }
+
     private void Test_Unpack_Hsv_Min_Logic(Func<PackedHsv, ColorHsv> unpackFunc)
     {
         PackedHsv value = new(0, 0, 0);
