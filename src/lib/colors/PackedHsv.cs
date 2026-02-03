@@ -4,7 +4,7 @@ public record struct PackedHsv(ushort H, ushort S, ushort V) : IPacked<ColorHsv>
 {
     private static ushort PackDouble(double value)
     {
-        return (ushort)(value * ushort.MaxValue);
+        return (ushort)Math.Clamp(value * ushort.MaxValue, ushort.MinValue, ushort.MaxValue);
     }
 
     private static double UnpackShort(ushort value)
