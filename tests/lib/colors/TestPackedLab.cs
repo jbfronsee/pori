@@ -143,4 +143,6 @@ public sealed class TestPackedLab
     {
         Test_Unpack_Lab_Middle_Logic(c => c.Unpack());
     }
+
+    //TODO add tests for values larger than max smaller than min
 }

@@ -40,12 +40,12 @@ public record struct PackedLab(ushort L, ushort A, ushort B) : IPacked<VectorLab
 
     private static double ABPack(double val, double scale, double min)
     {
-        return (val - min) * scale;
+        return Math.Clamp((val - min) * scale, ushort.MinValue, ushort.MaxValue);
     }
 
     private static ushort LPack(double l)
     {
-        return (ushort)(l * LScale);
+        return (ushort)Math.Clamp(l * LScale, ushort.MinValue, ushort.MaxValue);
     }
 
     private static ushort APack(double a)
